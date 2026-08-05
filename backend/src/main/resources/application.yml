@@ -1,0 +1,64 @@
+spring:
+  # ═══════════════════════════════════════════
+  # APPLICATION
+  # ═══════════════════════════════════════════
+  application:
+    name: quizapp-backend
+
+  # ═══════════════════════════════════════════
+  # DATASOURCE — PostgreSQL
+  # ═══════════════════════════════════════════
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:quizapp}
+    username: ${POSTGRES_USER:quizapp_user}
+    password: ${POSTGRES_PASSWORD:quizapp_secret}
+    driver-class-name: org.postgresql.Driver
+
+  # ═══════════════════════════════════════════
+  # JPA / HIBERNATE
+  # ═══════════════════════════════════════════
+  jpa:
+    hibernate:
+      ddl-auto: update          # 'create' pour reset, 'update' pour dev
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # ═══════════════════════════════════════════
+  # SERVLET
+  # ═══════════════════════════════════════════
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# ═══════════════════════════════════════════
+# SERVER
+# ═══════════════════════════════════════════
+server:
+  port: ${BACKEND_PORT:8080}
+  servlet:
+    context-path: /api
+
+# ═══════════════════════════════════════════
+# APPLICATION CUSTOM PROPERTIES
+# ═══════════════════════════════════════════
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET:super_secret_jwt_key_quizapp_2026_secure}
+      expiration: 86400000        # 24 heures en ms
+      refresh-token:
+        expiration: 604800000     # 7 jours en ms
+
+# ═══════════════════════════════════════════
+# LOGGING
+# ═══════════════════════════════════════════
+logging:
+  level:
+    com.quizapp: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
