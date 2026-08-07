@@ -10,7 +10,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.0</version> <!-- Version moderne (2024/2025) -->
+        <version>3.2.5</version> <!-- Version moderne (2024/2025) -->
         <relativePath/>
     </parent>
 
@@ -21,7 +21,7 @@
     <artifactId>quizapp-backend</artifactId>
     <version>1.0.0</version>
     <name>QuizApp Backend</name>
-    <description>Backend du QuizApp - Sessions Live, Temps Réel & Gamification</description>
+    <description>Backend du QuizApp - Sessions Live, Temps Reel et Gamification</description>
 
     <!-- ===================================================== -->
     <!-- 3. Propriétés (versions Java + encoding)              -->
@@ -133,7 +133,26 @@
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
             <optional>true</optional>
+
         </dependency>
+        <!-- JWT (pour le code de dev-a) -->
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-api</artifactId>
+    <version>0.12.5</version>
+</dependency>
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-impl</artifactId>
+    <version>0.12.5</version>
+    <scope>runtime</scope>
+</dependency>
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-jackson</artifactId>
+    <version>0.12.5</version>
+    <scope>runtime</scope>
+</dependency>
 
     </dependencies>
 
@@ -144,19 +163,22 @@
         <plugins>
             <!-- Plugin officiel Spring Boot : permet de lancer et packager l'app -->
             <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <!-- Lombok n'est pas nécessaire dans le JAR final -->
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <configuration>
+        <source>17</source>
+        <target>17</target>
+        <annotationProcessorPaths>
+            <path>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.32</version>
+            </path>
+        </annotationProcessorPaths>
+    </configuration>
+</plugin>
         </plugins>
     </build>
+    
 
 </project>
