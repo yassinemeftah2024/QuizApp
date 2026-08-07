@@ -94,13 +94,9 @@ function App() {
           }
         />
         <Route
-          path="/teacher/sessions/:id/live"
-          element={
-            <ProtectedRoute allowedRoles={['ENSEIGNANT']}>
-              <LiveSession />
-            </ProtectedRoute>
-          }
-        />
+  path="/teacher/sessions/:id/live"
+  element={<LiveSession />}
+/>
 
         {/* ═══════════════════════════════════════
             STUDENT (Mobile-first)
