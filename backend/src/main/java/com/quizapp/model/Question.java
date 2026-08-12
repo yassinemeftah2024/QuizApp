@@ -49,6 +49,15 @@ public class Question {
     @Column(columnDefinition = "TEXT")
     private String explication;
 
+    @Column(length = 1000)
+    private String mediaUrl;
+
+    @Column(length = 20)
+    private String mediaType;
+
+    @Column(length = 255)
+    private String mediaAlt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "qcm_id", nullable = false)
     @ToString.Exclude
@@ -56,5 +65,6 @@ public class Question {
 
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
+    @Builder.Default
     private List<Reponse> reponses = new ArrayList<>();
 }

@@ -22,6 +22,15 @@ public class Enseignant extends Utilisateur {
     @Column(length = 100)
     private String matiere;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "enseignant_matieres",
+        joinColumns = @JoinColumn(name = "enseignant_id"),
+        inverseJoinColumns = @JoinColumn(name = "matiere_id")
+    )
+    @ToString.Exclude
+    private List<Matiere> matieres = new ArrayList<>();
+
     @Column(length = 100)
     private String etablissement;
 

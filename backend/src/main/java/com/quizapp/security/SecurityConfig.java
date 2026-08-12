@@ -44,12 +44,14 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsServiceImpl userDetailsService;
+    private final RestSecurityErrorHandler restSecurityErrorHandler;
 
     // ─── Endpoints publics ─────────────────────────────────────────────
     private static final String[] PUBLIC_ENDPOINTS = {
             "/auth/**",
             "/sessions/join/**",   // Rejoindre via PIN (Etudiant + Invité)
             "/ws/**",              // WebSocket (géré séparément par dev-b)
+            "/media/questions/**",
             "/actuator/health"
     };
 
@@ -65,6 +67,9 @@ public class SecurityConfig {
             // ── Autorisation des routes ──
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                // Lecture publique des matières et classes (enseignants et étudiants en ont besoin)
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/matieres/**").authenticated()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/classes/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/teacher/**").hasRole("ENSEIGNANT")
                 .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "INVITE")
@@ -74,6 +79,12 @@ public class SecurityConfig {
             // ── Stateless (pas de session HTTP) ──
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // ── Réponses JSON cohérentes pour 401 / 403 au niveau du filtre ──
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(restSecurityErrorHandler)
+                .accessDeniedHandler(restSecurityErrorHandler)
             )
 
             // ── Provider d'authentification ──

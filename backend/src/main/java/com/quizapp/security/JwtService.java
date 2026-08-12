@@ -44,7 +44,12 @@ public class JwtService {
     // ─── Génération des Tokens ─────────────────────────────────────────
 
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("token_type", "access");
+        if (userDetails instanceof com.quizapp.model.Utilisateur) {
+            extraClaims.put("role", ((com.quizapp.model.Utilisateur) userDetails).getRole().getNom().name());
+        }
+        return generateToken(extraClaims, userDetails);
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
@@ -52,7 +57,17 @@ public class JwtService {
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, refreshExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("token_type", "refresh");
+        return buildToken(claims, userDetails, refreshExpiration);
+    }
+
+    public boolean isAccessToken(String token) {
+        return "access".equals(extractClaim(token, claims -> claims.get("token_type", String.class)));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return "refresh".equals(extractClaim(token, claims -> claims.get("token_type", String.class)));
     }
 
     private String buildToken(

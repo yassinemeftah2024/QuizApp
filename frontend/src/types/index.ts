@@ -16,7 +16,9 @@ export type StatutSessionEnum =
   | 'TERMINEE'
   | 'ANNULEE';
 
-export type TypeQuestionEnum = 'QCM' | 'VRAI_FAUX' | 'TEXTE_LIBRE';
+export type TypeQuestionEnum = 'QCM' | 'CHOIX_UNIQUE' | 'CHOIX_MULTIPLE' | 'VRAI_FAUX' | 'TEXTE_LIBRE';
+
+export type DifficulteEnum = 'FACILE' | 'MOYEN' | 'DIFFICILE';
 
 export type SourceGenerationEnum = 'MANUEL' | 'IA' | 'IMPORT';
 
@@ -43,12 +45,21 @@ export interface RegisterRequest {
   email: string;
   motDePasse: string;
   role: RoleEnum;
+  classeId?: number;
+  matiereIds?: number[];
+  classeIds?: number[];
+  etablissement?: string;
+  departement?: string;
 }
 
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  utilisateur: UtilisateurDTO;
+  id: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  role: RoleEnum;
 }
 
 // ─── Utilisateur ───────────────────────────────────────────────────────
@@ -62,6 +73,12 @@ export interface UtilisateurDTO {
   avatarAnimal?: AvatarAnimal;
   actif: boolean;
   dateCreation: string;
+  matiereIds?: number[];
+  matiereNoms?: string[];
+  classeIds?: number[];
+  classeNoms?: string[];
+  classeId?: number;
+  classeNom?: string;
 }
 
 export interface EtudiantDTO extends UtilisateurDTO {
@@ -100,6 +117,7 @@ export interface ClasseDTO {
   id: number;
   nom: string;
   niveau?: string;
+  section?: string;
   anneeAcademique?: string;
   nombreEtudiants?: number;
 }
@@ -111,7 +129,11 @@ export interface QCMDTO {
   titre: string;
   description?: string;
   matiere?: string;
+  matiereId?: number;
   niveau?: string;
+  difficulte?: DifficulteEnum;
+  classeIds?: number[];
+  classeNoms?: string[];
   mode: ModeQuizEnum;
   source: SourceGenerationEnum;
   dureeMinutes?: number;
@@ -120,6 +142,7 @@ export interface QCMDTO {
   shuffleQuestions: boolean;
   showExplanations: boolean;
   allowRetakes: boolean;
+  disponibleEntrainement: boolean;
   enseignantId: number;
   nombreQuestions: number;
   dateCreation: string;
@@ -130,12 +153,16 @@ export interface CreateQCMRequest {
   titre: string;
   description?: string;
   matiere?: string;
+  matiereId?: number;
   niveau?: string;
+  difficulte?: DifficulteEnum;
+  classeIds?: number[];
   mode: ModeQuizEnum;
   dureeMinutes?: number;
   shuffleQuestions?: boolean;
   showExplanations?: boolean;
   allowRetakes?: boolean;
+  disponibleEntrainement?: boolean;
 }
 
 // ─── Question ──────────────────────────────────────────────────────────
@@ -148,6 +175,9 @@ export interface QuestionDTO {
   dureeSecondes: number;
   points: number;
   explication?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  mediaAlt?: string;
   reponses: ReponseDTO[];
 }
 
@@ -158,6 +188,9 @@ export interface CreateQuestionRequest {
   dureeSecondes?: number;
   points?: number;
   explication?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  mediaAlt?: string;
   reponses: CreateReponseRequest[];
 }
 
