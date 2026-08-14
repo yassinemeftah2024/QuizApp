@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { sessionService, type SessionResponse } from '@/services/sessionService'
+import { wsService } from '@/services/websocket'
 
 interface Participant {
   id: number
@@ -42,12 +43,42 @@ function LiveSession() {
     }
   }, [sessionId])
 
+  // Chargement initial + WebSocket
   useEffect(() => {
     loadSession()
     loadParticipants()
-    const interval = setInterval(loadParticipants, 2000)
-    return () => clearInterval(interval)
-  }, [loadSession, loadParticipants])
+
+    wsService.connect(
+      () => {
+        console.log('WS prêt pour la session', sessionId)
+
+        wsService.subscribe(
+          `/topic/session/${sessionId}/participants`,
+          (data) => {
+            if (Array.isArray(data)) {
+              setParticipants(data as Participant[])
+            }
+          }
+        )
+
+        wsService.subscribe(
+          `/topic/session/${sessionId}/leaderboard`,
+          (data) => {
+            if (Array.isArray(data)) {
+              setParticipants(data as Participant[])
+            }
+          }
+        )
+      },
+      (err) => {
+        console.error('Erreur WS:', err)
+      }
+    )
+
+    return () => {
+      wsService.disconnect()
+    }
+  }, [sessionId, loadSession, loadParticipants])
 
   const handleStart = async () => {
     if (!session) return
@@ -55,10 +86,22 @@ function LiveSession() {
     try {
       const updated = await sessionService.start(session.id)
       setSession(updated)
+      wsService.send(`/app/session/${session.id}/start`, {})
     } catch {
       setError('Impossible de démarrer la session')
     } finally {
       setStarting(false)
+    }
+  }
+
+  const handleNextQuestion = async () => {
+    if (!session) return
+    try {
+      const updated = await sessionService.nextQuestion(session.id)
+      setSession(updated)
+      wsService.send(`/app/session/${session.id}/next-question`, {})
+    } catch {
+      setError('Impossible de passer à la question suivante')
     }
   }
 
@@ -67,6 +110,7 @@ function LiveSession() {
     try {
       const updated = await sessionService.finish(session.id)
       setSession(updated)
+      navigate(`/results/${session.id}`)
     } catch {
       setError('Impossible de terminer la session')
     }
@@ -112,6 +156,10 @@ function LiveSession() {
 
   const joinUrl = `${window.location.origin}/join/${session.codePIN}`
 
+  const sortedParticipants = [...participants].sort(
+    (a, b) => (b.scoreTotal ?? 0) - (a.scoreTotal ?? 0)
+  )
+
   return (
     <div className="layout-desktop">
       <div className="main-content" style={{ padding: 0 }}>
@@ -126,7 +174,11 @@ function LiveSession() {
               ← Retour
             </button>
             <span className="badge-live">
-              {session.statut === 'EN_COURS' ? 'EN COURS' : 'LOBBY'}
+              {session.statut === 'EN_COURS'
+                ? 'EN COURS'
+                : session.statut === 'TERMINEE'
+                ? 'TERMINÉE'
+                : 'LOBBY'}
             </span>
           </div>
           <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
@@ -134,7 +186,7 @@ function LiveSession() {
           </div>
         </div>
 
-        {/* Contenu principal */}
+        {/* Contenu */}
         <div
           style={{
             display: 'grid',
@@ -144,12 +196,12 @@ function LiveSession() {
             minHeight: 'calc(100vh - var(--header-height))',
           }}
         >
-          {/* Colonne gauche : PIN + QR */}
+          {/* Colonne gauche */}
           <div
             className="animate-fade-in"
             style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}
           >
-            {/* Carte PIN (cliquable pour copier) */}
+            {/* PIN */}
             <div
               className="card"
               onClick={handleCopyPin}
@@ -193,7 +245,7 @@ function LiveSession() {
               </p>
             </div>
 
-            {/* QR Code */}
+            {/* QR */}
             <div
               className="card"
               style={{
@@ -242,7 +294,7 @@ function LiveSession() {
               </p>
             </div>
 
-            {/* Actions selon le statut */}
+            {/* Actions */}
             {session.statut === 'PLANIFIEE' && (
               <button
                 className="btn-primary"
@@ -265,36 +317,43 @@ function LiveSession() {
               >
                 <span className="badge-live">EN COURS</span>
                 <p style={{ marginTop: '0.75rem', color: 'var(--text-secondary)' }}>
-                  La session est démarrée — question{' '}
-                  {(session.currentQuestionIndex ?? 0) + 1}
+                  Question {(session.currentQuestionIndex ?? 0) + 1}
                 </p>
-                <button
-                  className="btn-secondary"
-                  style={{ marginTop: '1rem' }}
-                  onClick={handleFinish}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    marginTop: '1rem',
+                    justifyContent: 'center',
+                    flexWrap: 'wrap',
+                  }}
                 >
-                  Terminer la session
-                </button>
+                  <button className="btn-primary" onClick={handleNextQuestion}>
+                    Question suivante →
+                  </button>
+                  <button className="btn-secondary" onClick={handleFinish}>
+                    Terminer
+                  </button>
+                </div>
               </div>
             )}
 
             {session.statut === 'TERMINEE' && (
               <div className="card" style={{ textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-secondary)' }}>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
                   Session terminée
                 </p>
                 <button
                   className="btn-primary"
-                  style={{ marginTop: '1rem' }}
-                  onClick={() => navigate('/teacher/quizzes')}
+                  onClick={() => navigate(`/results/${session.id}`)}
                 >
-                  Retour aux quiz
+                  Voir le podium 🏆
                 </button>
               </div>
             )}
           </div>
 
-          {/* Colonne droite : Participants */}
+          {/* Classement */}
           <div
             className="card animate-slide-in"
             style={{
@@ -311,7 +370,7 @@ function LiveSession() {
                 marginBottom: '1.25rem',
               }}
             >
-              <h3 style={{ fontSize: '1.125rem' }}>Participants</h3>
+              <h3 style={{ fontSize: '1.125rem' }}>Classement</h3>
               <span
                 style={{
                   background: 'rgba(6,182,212,0.15)',
@@ -326,7 +385,7 @@ function LiveSession() {
               </span>
             </div>
 
-            {participants.length === 0 ? (
+            {sortedParticipants.length === 0 ? (
               <div
                 style={{
                   flex: 1,
@@ -352,7 +411,7 @@ function LiveSession() {
                   gap: '0.5rem',
                 }}
               >
-                {participants.map((p, index) => (
+                {sortedParticipants.map((p, index) => (
                   <div
                     key={p.id}
                     className="animate-scale-in"
@@ -367,6 +426,23 @@ function LiveSession() {
                       animationDelay: `${index * 50}ms`,
                     }}
                   >
+                    <span
+                      style={{
+                        width: 24,
+                        textAlign: 'center',
+                        fontWeight: 800,
+                        color:
+                          index === 0
+                            ? '#fbbf24'
+                            : index === 1
+                            ? '#94a3b8'
+                            : index === 2
+                            ? '#cd7c3a'
+                            : 'var(--text-muted)',
+                      }}
+                    >
+                      {index + 1}
+                    </span>
                     <div
                       style={{
                         width: 36,
@@ -382,7 +458,16 @@ function LiveSession() {
                     >
                       {p.pseudonyme.charAt(0).toUpperCase()}
                     </div>
-                    <span style={{ fontWeight: 500 }}>{p.pseudonyme}</span>
+                    <span style={{ fontWeight: 500, flex: 1 }}>{p.pseudonyme}</span>
+                    <span
+                      style={{
+                        color: 'var(--accent-cyan)',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      {Math.round(p.scoreTotal ?? 0)} pts
+                    </span>
                   </div>
                 ))}
               </div>

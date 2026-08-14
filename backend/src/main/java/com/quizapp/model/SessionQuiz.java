@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 
 @Entity
 @Table(name = "session_quiz")
@@ -53,6 +55,7 @@ public class SessionQuiz {
     // Relation demandée par dev-a
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "qcm_id", insertable = false, updatable = false)
+    @JsonIgnore
     private QCM qcm;
 
     // ========== QUI A CRÉÉ LA SESSION ==========

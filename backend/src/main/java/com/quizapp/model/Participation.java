@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 
 @Entity
 @Table(name = "participation")
@@ -28,6 +30,7 @@ public class Participation {
     // ========== LIEN AVEC L'ÉTUDIANT (pour coller avec dev-a) ==========
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "etudiant_id")
+    @JsonIgnore
     private Etudiant etudiant;          // ← nouveau champ demandé par dev-a
 
     // ========== LIEN AVEC L'UTILISATEUR (optionnel - pour les invités) ==========

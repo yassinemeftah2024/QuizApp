@@ -10,6 +10,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    global: 'window',   // ← FIX sockjs-client
+  },
   server: {
     port: 3000,
     host: '0.0.0.0',  // Pour Docker

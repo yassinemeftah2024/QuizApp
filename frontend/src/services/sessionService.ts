@@ -69,4 +69,8 @@ export const sessionService = {
     const { data } = await api.get(`/api/participations/session/${sessionId}/leaderboard`)
     return data
   },
+  nextQuestion: async (id: number): Promise<SessionResponse> => {
+    const { data } = await api.post<SessionResponse>(`/api/sessions/${id}/next-question`)
+    return data
+  },
 }
