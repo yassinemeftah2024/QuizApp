@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import type { RoleEnum } from '@/types'
+import { useAuth } from '@/context/AuthContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -12,15 +13,16 @@ interface ProtectedRouteProps {
  * ou vers / si le rôle n'est pas autorisé.
  */
 function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const token = localStorage.getItem('accessToken')
-  const userStr = localStorage.getItem('currentUser')
+  const { user, loading } = useAuth()
 
-  // Non authentifié
-  if (!token || !userStr) {
-    return <Navigate to="/login" replace />
+  if (loading) {
+    return <div>Loading...</div>
   }
 
-  const user = JSON.parse(userStr)
+  // Non authentifié
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
 
   // Rôle non autorisé
   if (!allowedRoles.includes(user.role)) {

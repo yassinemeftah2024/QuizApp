@@ -47,6 +47,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
 
         try {
+            if (!jwtService.isAccessToken(jwt)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             userEmail = jwtService.extractUsername(jwt);
 
             // Si email extrait et pas encore authentifié dans le contexte

@@ -1,6 +1,7 @@
 package com.quizapp.model;
 
 import com.quizapp.model.enums.ModeQuizEnum;
+import com.quizapp.model.enums.DifficulteEnum;
 import com.quizapp.model.enums.SourceGenerationEnum;
 import jakarta.persistence.*;
 import lombok.*;
@@ -39,6 +40,26 @@ public class QCM {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
+    private DifficulteEnum difficulte = DifficulteEnum.MOYEN;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "matiere_id")
+    @ToString.Exclude
+    private Matiere matiereRef;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "qcm_classes",
+        joinColumns = @JoinColumn(name = "qcm_id"),
+        inverseJoinColumns = @JoinColumn(name = "classe_id")
+    )
+    @ToString.Exclude
+    @Builder.Default
+    private List<Classe> classes = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ModeQuizEnum mode;
 
     @Enumerated(EnumType.STRING)
@@ -70,6 +91,10 @@ public class QCM {
     @Builder.Default
     private Boolean allowRetakes = false;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean disponibleEntrainement = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "enseignant_id", nullable = false)
     @ToString.Exclude
@@ -78,10 +103,12 @@ public class QCM {
     @OneToMany(mappedBy = "qcm", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("ordre ASC")
     @ToString.Exclude
+    @Builder.Default
     private List<Question> questions = new ArrayList<>();
 
     @OneToMany(mappedBy = "qcm", cascade = CascadeType.ALL)
     @ToString.Exclude
+    @Builder.Default
     private List<SessionQuiz> sessions = new ArrayList<>();
 
     @Column(nullable = false, updatable = false)

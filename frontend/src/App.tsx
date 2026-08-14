@@ -1,138 +1,163 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-
-// ─── Pages publiques ─────────────────────────────────────────────────
-import LandingPage from '@/pages/public/LandingPage'
-
-// ─── Pages Auth ──────────────────────────────────────────────────────
-import LoginPage from '@/pages/auth/LoginPage'
-
-// ─── Pages Admin ─────────────────────────────────────────────────────
-import AdminDashboard from '@/pages/admin/AdminDashboard'
-
-// ─── Pages Teacher ───────────────────────────────────────────────────
-import QuizList from '@/pages/teacher/QuizList'
-import QuizEditor from '@/pages/teacher/QuizEditor'
-import LiveSession from '@/pages/teacher/LiveSession'
-
-// ─── Pages Student + Guest (Mobile-first, responsive) ─────────────────
-import StudentHome from '@/pages/student/StudentHome'
-import JoinQuiz from '@/pages/student/JoinQuiz'
-import AvatarSelection from '@/pages/student/AvatarSelection'
-import LiveQuestion from '@/pages/student/LiveQuestion'
-import QuizResults from '@/pages/student/QuizResults'
-import HistoryBadges from '@/pages/student/HistoryBadges'
-import ProfileSettings from '@/pages/student/ProfileSettings'
-
-// ─── Guards ──────────────────────────────────────────────────────────
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { AuthProvider } from '@/context/AuthContext'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import { AdminTeacherLayout, StudentLayout } from '@/components/layout/AppLayout'
 
-/**
- * App — Routeur principal QuizApp.
- *
- * Architecture responsive :
- * - Admin/Teacher → Desktop-first
- * - Student/Guest → Mobile-first (responsive 375px → 1440px)
- *
- * Student et Guest partagent les mêmes vues :
- *   /join, /avatar, /live/:sessionId, /results/:sessionId
- */
+// ─── Figma / dev-a ───────────────────────────────────────────────────
+import RoleSelect from '@/pages/RoleSelect'
+import { AdminLoginWrapper, TeacherLoginWrapper, StudentLoginWrapper } from '@/pages/auth/AuthWrappers'
+
+import AdminDashboard from '@/pages/admin/Dashboard'
+import AdminUsers from '@/pages/admin/Users'
+import AdminAcademicStructure from '@/pages/admin/AdminDashboard'
+import AdminSettings from '@/pages/admin/Settings'
+
+import TeacherDashboard from '@/pages/teacher/Dashboard'
+import TeacherQuizList from '@/pages/teacher/QuizList'
+import TeacherQuizCreate from '@/pages/teacher/QuizCreate'
+import TeacherDocuments from '@/pages/teacher/Documents'
+import TeacherResults from '@/pages/teacher/Results'
+import TeacherSettings from '@/pages/teacher/Settings'
+import TeacherClasses from '@/pages/teacher/Classes'
+import TeacherQuestionBank from '@/pages/teacher/QuestionBank'
+
+import StudentHome from '@/pages/student/Home'
+import StudentHistory from '@/pages/student/History'
+import ProfilePage from '@/pages/profile/ProfilePage'
+import StudentJoinQuiz from '@/pages/student/JoinQuiz'
+import AvatarSelect from '@/pages/student/AvatarSelect'
+import LiveQuestion from '@/pages/student/LiveQuestion'
+import StudentScore from '@/pages/student/Score'
+import StudentSubjects from '@/pages/student/Subjects'
+import StudentTraining from '@/pages/student/Training'
+import StudentTrainingQuiz from '@/pages/student/TrainingQuiz'
+import StudentTrainingResult from '@/pages/student/TrainingResult'
+
+import GuestEntry from '@/pages/guest/Entry'
+
+// ─── dev-b (sessions live) ───────────────────────────────────────────
+import LiveSession from '@/pages/teacher/LiveSession'
+import QuizResults from '@/pages/student/QuizResults'
+
+const RoleSelectWrapper = () => {
+  const navigate = useNavigate()
+  return (
+    <RoleSelect
+      onSelect={(role) => {
+        if (role === 'guest') navigate('/guest')
+        else navigate(`/login/${role}`)
+      }}
+    />
+  )
+}
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* ── Public ─────────────────────────────────────────────── */}
+          <Route path="/" element={<RoleSelectWrapper />} />
+          <Route
+            path="/guest"
+            element={
+              <GuestEntry onJoin={() => {}} onBack={() => {}} onRegister={() => {}} />
+            }
+          />
+          <Route path="/login/admin" element={<AdminLoginWrapper />} />
+          <Route path="/login/teacher" element={<TeacherLoginWrapper />} />
+          <Route path="/login/student" element={<StudentLoginWrapper />} />
 
-        {/* ═══════════════════════════════════════
-            ROUTES PUBLIQUES
-        ════════════════════════════════════════ */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
+          {/* ── Join public (dev-b) — sans auth pour tester ────────── */}
+          <Route path="/join" element={<StudentJoinQuiz onJoin={() => {}} />} />
+          <Route path="/join/:pin" element={<StudentJoinQuiz onJoin={() => {}} />} />
+          <Route path="/live/:sessionId" element={<LiveQuestion />} />
+          <Route path="/results/:sessionId" element={<QuizResults />} />
 
-        {/* Routes partagées Etudiant + Invité (Mobile-first) */}
-        <Route path="/join" element={<JoinQuiz />} />
-        <Route path="/join/:pin" element={<JoinQuiz />} />
-        <Route path="/avatar" element={<AvatarSelection />} />
-        <Route path="/live/:sessionId" element={<LiveQuestion />} />
-        <Route path="/results/:sessionId" element={<QuizResults />} />
+          {/* ── Admin ──────────────────────────────────────────────── */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminTeacherLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers onToast={() => {}} />} />
+            <Route path="classes" element={<AdminAcademicStructure />} />
+            <Route path="settings" element={<AdminSettings onToast={() => {}} />} />
+            <Route path="profile" element={<ProfilePage />} />
+          </Route>
 
-        {/* ═══════════════════════════════════════
-            ADMIN (Desktop-first)
-        ════════════════════════════════════════ */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {/* ── Teacher ────────────────────────────────────────────── */}
+          <Route
+            path="/teacher"
+            element={
+              <ProtectedRoute allowedRoles={['ENSEIGNANT']}>
+                <AdminTeacherLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<TeacherDashboard userName="Teacher" onNav={() => {}} />} />
+            <Route path="quizzes" element={<TeacherQuizList onNav={() => {}} onToast={() => {}} />} />
+            <Route path="question-bank" element={<TeacherQuestionBank />} />
+            <Route path="quiz-create" element={<TeacherQuizCreate onBack={() => {}} onToast={() => {}} />} />
+            <Route path="quiz-create/:quizId" element={<TeacherQuizCreate onBack={() => {}} onToast={() => {}} />} />
+            <Route path="documents" element={<TeacherDocuments onToast={() => {}} />} />
+            <Route path="classes" element={<TeacherClasses />} />
+            <Route path="stats" element={<TeacherResults onToast={() => {}} />} />
+            <Route path="settings" element={<TeacherSettings onToast={() => {}} />} />
+            <Route path="profile" element={<ProfilePage />} />
+          </Route>
 
-        {/* ═══════════════════════════════════════
-            TEACHER (Desktop-first)
-        ════════════════════════════════════════ */}
-        <Route
-          path="/teacher/quizzes"
-          element={
-            <ProtectedRoute allowedRoles={['ENSEIGNANT']}>
-              <QuizList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/teacher/quizzes/new"
-          element={
-            <ProtectedRoute allowedRoles={['ENSEIGNANT']}>
-              <QuizEditor />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/teacher/quizzes/:id/edit"
-          element={
-            <ProtectedRoute allowedRoles={['ENSEIGNANT']}>
-              <QuizEditor />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-  path="/teacher/sessions/:id/live"
-  element={<LiveSession />}
-/>
+          {/* ── Live session enseignant (dev-b) — sans auth pour tester */}
+          <Route path="/teacher/sessions/:id/live" element={<LiveSession />} />
 
-        {/* ═══════════════════════════════════════
-            STUDENT (Mobile-first)
-        ════════════════════════════════════════ */}
-        <Route
-          path="/student"
-          element={
-            <ProtectedRoute allowedRoles={['ETUDIANT']}>
-              <StudentHome />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/student/history"
-          element={
-            <ProtectedRoute allowedRoles={['ETUDIANT']}>
-              <HistoryBadges />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/student/profile"
-          element={
-            <ProtectedRoute allowedRoles={['ETUDIANT']}>
-              <ProfileSettings />
-            </ProtectedRoute>
-          }
-        />
+          {/* ── Student ────────────────────────────────────────────── */}
+          <Route
+            path="/student"
+            element={
+              <ProtectedRoute allowedRoles={['ETUDIANT']}>
+                <StudentLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<StudentHome onNav={() => {}} />} />
+            <Route path="join" element={<StudentJoinQuiz onJoin={() => {}} />} />
+            <Route path="subjects" element={<StudentSubjects />} />
+            <Route path="training" element={<StudentTraining />} />
+            <Route path="training/:quizId" element={<StudentTrainingQuiz />} />
+            <Route path="training/result" element={<StudentTrainingResult />} />
+            <Route path="history" element={<StudentHistory />} />
+            <Route path="profile" element={<ProfilePage />} />
+          </Route>
 
-        {/* ═══════════════════════════════════════
-            FALLBACK
-        ════════════════════════════════════════ */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+            path="/student/avatar"
+            element={
+              <ProtectedRoute allowedRoles={['ETUDIANT']}>
+                <AvatarSelect onConfirm={() => {}} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/score"
+            element={
+              <ProtectedRoute allowedRoles={['ETUDIANT']}>
+                <StudentScore
+                  avatar={{ emoji: '🦊', color: '#f00', name: '', nickname: '' } as any}
+                  onHome={() => {}}
+                />
+              </ProtectedRoute>
+            }
+          />
 
-      </Routes>
-    </BrowserRouter>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 

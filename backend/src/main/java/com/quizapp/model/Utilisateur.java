@@ -46,6 +46,9 @@ public class Utilisateur implements UserDetails {
     @Column(length = 50)
     private String avatarAnimal; // Lion, Tiger, Eagle, etc. (gamification)
 
+    @Column(columnDefinition = "TEXT")
+    private String photoBase64; // Optional profile photo as base64 data URL
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;

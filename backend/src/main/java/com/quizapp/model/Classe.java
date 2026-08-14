@@ -28,7 +28,13 @@ public class Classe {
     private String niveau; // Grade 10, Grade 11, etc.
 
     @Column(length = 50)
+    private String section;
+
+    @Column(length = 50)
     private String anneeAcademique; // 2025-2026
+
+    @Column(length = 500)
+    private String description; // Ex: 1ère année Génie Informatique
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

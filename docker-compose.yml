@@ -17,7 +17,7 @@ services:
     networks:
       - quizapp-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quizapp_user} -d ${POSTGRES_DB:-quizapp}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quizapp_user} -d ${POSTGRES_DB:-quizapp}" ]
       interval: 10s
       timeout: 5s
       retries: 5

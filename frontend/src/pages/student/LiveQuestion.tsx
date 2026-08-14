@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { sessionService, type SessionResponse } from '@/services/sessionService'
@@ -450,9 +451,11 @@ function LiveQuestion() {
 
       {error && (
         <p style={{ color: 'var(--error)', textAlign: 'center', padding: '1rem' }}>{error}</p>
+
+
       )}
     </div>
   )
 }
-
 export default LiveQuestion
+

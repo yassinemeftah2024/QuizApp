@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { sessionService } from '@/services/sessionService'
@@ -212,5 +213,4 @@ function JoinQuiz() {
     </div>
   )
 }
-
 export default JoinQuiz
