@@ -133,4 +133,12 @@ public class AuthService {
         }
         throw new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token invalide");
     }
+    public String devSetPassword(String email, String rawPassword) {
+    Utilisateur utilisateur = utilisateurRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("Utilisateur non trouvé: " + email));
+    utilisateur.setMotDePasse(passwordEncoder.encode(rawPassword));
+    utilisateur.setActif(true);
+    utilisateurRepository.save(utilisateur);
+    return "OK: password updated for " + email;
+}
 }

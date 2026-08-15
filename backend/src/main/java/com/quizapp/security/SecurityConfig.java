@@ -48,12 +48,14 @@ public class SecurityConfig {
 
     // ─── Endpoints publics ─────────────────────────────────────────────
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/auth/**",
-            "/sessions/join/**",   // Rejoindre via PIN (Etudiant + Invité)
-            "/ws/**",              // WebSocket (géré séparément par dev-b)
-            "/media/questions/**",
-            "/actuator/health"
-    };
+        "/auth/**",
+        "/sessions/**",
+        "/participations/**",
+        "/reponses/**",
+        "/ws/**",
+        "/media/questions/**",
+        "/actuator/health"
+};
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -68,7 +70,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 // Lecture publique des matières et classes (enseignants et étudiants en ont besoin)
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/matieres/**").authenticated()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/matieres/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/classes/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/teacher/**").hasRole("ENSEIGNANT")

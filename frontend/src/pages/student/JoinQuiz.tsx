@@ -3,8 +3,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { sessionService } from '@/services/sessionService'
 import { participationService } from '@/services/participationService'
+import './JoinQuiz.css'
 
-function JoinQuiz() {
+interface JoinQuizProps {
+  onJoin?: () => void
+}
+
+function JoinQuiz({ onJoin }: JoinQuizProps) {
   const { pin: pinFromUrl } = useParams<{ pin?: string }>()
   const navigate = useNavigate()
 
@@ -56,6 +61,8 @@ function JoinQuiz() {
       localStorage.setItem('sessionId', String(session.id))
       localStorage.setItem('pseudonyme', cleanPseudo)
 
+      onJoin?.()
+
       // 4. Aller vers l'écran d'attente / jeu
       // Pour l'instant on redirige vers /live/:sessionId
       navigate(`/live/${session.id}`)
@@ -68,148 +75,94 @@ function JoinQuiz() {
   }
 
   return (
-    <div className="layout-mobile layout-mobile-gradient">
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1.5rem',
-        }}
-      >
-        {/* Logo / Titre */}
-        <div className="animate-fade-in" style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(1.75rem, 6vw, 2.5rem)',
-              background: 'var(--accent-gradient)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              marginBottom: '0.5rem',
-            }}
-          >
-            QuizApp
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>
-            Rejoins une session en direct
+    <div className="join-quiz-page animate-fade-in">
+      <section className="join-quiz-hero" aria-label="Rejoindre un quiz en direct">
+        <div className="join-quiz-hero__content">
+          <div className="join-quiz-kicker">Session live</div>
+          <h1>Entre dans le quiz</h1>
+          <p>
+            Saisis le code affiché par ton enseignant, choisis ton pseudo et rejoins la partie.
           </p>
+          <div className="join-quiz-steps" aria-label="Étapes">
+            <span>1. Code PIN</span>
+            <span>2. Pseudo</span>
+            <span>3. Prêt à jouer</span>
+          </div>
         </div>
 
-        {/* Formulaire */}
-        <form
-          onSubmit={handleJoin}
-          className="card animate-scale-in"
-          style={{
-            width: '100%',
-            maxWidth: 400,
-            padding: '2rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
-          {/* PIN */}
-          <div>
-            <label
-              style={{
-                display: 'block',
-                color: 'var(--text-muted)',
-                fontSize: '0.8125rem',
-                marginBottom: '0.5rem',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Code PIN
-            </label>
+        <form onSubmit={handleJoin} className="join-quiz-card" noValidate>
+          <div className="join-quiz-card__header">
+            <div className="join-quiz-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 12a7 7 0 0 1 14 0" />
+                <path d="M8 12a4 4 0 0 1 8 0" />
+                <path d="M12 12v7" />
+                <path d="M9 19h6" />
+              </svg>
+            </div>
+            <div>
+              <h2>Rejoindre maintenant</h2>
+              <p>Aucun compte requis pour cette session.</p>
+            </div>
+          </div>
+
+          <label className="join-quiz-field">
+            <span>Code PIN</span>
             <input
-              className="input"
+              className="join-quiz-input join-quiz-input--pin"
               type="text"
               inputMode="numeric"
               maxLength={6}
-              placeholder="Ex: 433250"
+              placeholder="433250"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-              style={{
-                textAlign: 'center',
-                fontSize: '1.5rem',
-                letterSpacing: '0.3em',
-                fontWeight: 700,
-                fontFamily: 'var(--font-display)',
-              }}
               autoFocus={!pinFromUrl}
+              aria-invalid={!!error && pin.trim().length < 4}
+              aria-describedby={error ? 'join-quiz-error' : undefined}
             />
-          </div>
+          </label>
 
-          {/* Pseudo */}
-          <div>
-            <label
-              style={{
-                display: 'block',
-                color: 'var(--text-muted)',
-                fontSize: '0.8125rem',
-                marginBottom: '0.5rem',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Ton pseudo
-            </label>
+          <label className="join-quiz-field">
+            <span>Ton pseudo</span>
             <input
-              className="input"
+              className="join-quiz-input"
               type="text"
               maxLength={20}
-              placeholder="Ex: Alex"
+              placeholder="Alex"
               value={pseudo}
               onChange={(e) => setPseudo(e.target.value)}
               autoFocus={!!pinFromUrl}
+              aria-invalid={!!error && pseudo.trim().length < 2}
+              aria-describedby={error ? 'join-quiz-error' : undefined}
             />
-          </div>
+          </label>
 
-          {/* Erreur */}
           {error && (
-            <p
-              style={{
-                color: 'var(--error)',
-                fontSize: '0.875rem',
-                textAlign: 'center',
-                margin: 0,
-              }}
-            >
+            <p id="join-quiz-error" className="join-quiz-error" role="alert">
               {error}
             </p>
           )}
 
-          {/* Bouton */}
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              fontSize: '1.0625rem',
-              marginTop: '0.5rem',
-            }}
-          >
-            {loading ? 'Connexion...' : 'Rejoindre 🚀'}
+          <button type="submit" className="join-quiz-submit btn-neon" disabled={loading}>
+            <span>{loading ? 'Connexion...' : 'Rejoindre'}</span>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
           </button>
         </form>
 
-        <p
-          style={{
-            marginTop: '2rem',
-            color: 'var(--text-muted)',
-            fontSize: '0.8125rem',
-            textAlign: 'center',
-          }}
-        >
-          Pas de compte nécessaire — joue en invité
-        </p>
-      </div>
+        <aside className="join-quiz-panel" aria-label="Conseils pour rejoindre">
+          <div className="join-quiz-panel__row">
+            <span className="join-quiz-panel__badge">PIN</span>
+            <p>Le code contient 4 à 6 chiffres et se trouve sur l'écran de la session.</p>
+          </div>
+          <div className="join-quiz-panel__row">
+            <span className="join-quiz-panel__badge join-quiz-panel__badge--cyan">LIVE</span>
+            <p>Une fois connecté, tu seras envoyé automatiquement vers la salle d'attente.</p>
+          </div>
+        </aside>
+      </section>
     </div>
   )
 }

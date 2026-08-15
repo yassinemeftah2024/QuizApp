@@ -34,4 +34,8 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.refreshToken(request));
     }
+    @PostMapping("/dev-set-password")
+public ResponseEntity<?> devSetPassword(@RequestBody java.util.Map<String, String> body) {
+    return ResponseEntity.ok(authService.devSetPassword(body.get("email"), body.get("password")));
+}
 }

@@ -3,11 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { sessionService, type SessionResponse } from '@/services/sessionService'
 import { wsService } from '@/services/websocket'
+import './LiveSession.css'
 
 interface Participant {
   id: number
   pseudonyme: string
   scoreTotal?: number
+}
+
+const getStatusLabel = (status: SessionResponse['statut']) => {
+  if (status === 'EN_COURS') return 'En cours'
+  if (status === 'TERMINEE') return 'Terminée'
+  if (status === 'ANNULEE') return 'Annulée'
+  return 'Lobby'
 }
 
 function LiveSession() {
@@ -39,11 +47,10 @@ function LiveSession() {
       const data = await sessionService.getParticipants(sessionId)
       setParticipants(Array.isArray(data) ? data : [])
     } catch {
-      // silencieux
+      // Silencieux: le WebSocket peut mettre la liste à jour ensuite.
     }
   }, [sessionId])
 
-  // Chargement initial + WebSocket
   useEffect(() => {
     loadSession()
     loadParticipants()
@@ -52,23 +59,17 @@ function LiveSession() {
       () => {
         console.log('WS prêt pour la session', sessionId)
 
-        wsService.subscribe(
-          `/topic/session/${sessionId}/participants`,
-          (data) => {
-            if (Array.isArray(data)) {
-              setParticipants(data as Participant[])
-            }
+        wsService.subscribe(`/topic/session/${sessionId}/participants`, (data) => {
+          if (Array.isArray(data)) {
+            setParticipants(data as Participant[])
           }
-        )
+        })
 
-        wsService.subscribe(
-          `/topic/session/${sessionId}/leaderboard`,
-          (data) => {
-            if (Array.isArray(data)) {
-              setParticipants(data as Participant[])
-            }
+        wsService.subscribe(`/topic/session/${sessionId}/leaderboard`, (data) => {
+          if (Array.isArray(data)) {
+            setParticipants(data as Participant[])
           }
-        )
+        })
       },
       (err) => {
         console.error('Erreur WS:', err)
@@ -125,29 +126,21 @@ function LiveSession() {
 
   if (loading) {
     return (
-      <div className="layout-desktop">
-        <div
-          className="main-content"
-          style={{
-            padding: '2rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div className="skeleton" style={{ width: 200, height: 40 }} />
-        </div>
+      <div className="teacher-live-page teacher-live-page--center">
+        <div className="teacher-live-loader" aria-label="Chargement de la session" />
       </div>
     )
   }
 
   if (error || !session) {
     return (
-      <div className="layout-desktop">
-        <div className="main-content" style={{ padding: '2rem' }}>
-          <p style={{ color: 'var(--error)' }}>{error || 'Session introuvable'}</p>
-          <button className="btn-secondary" onClick={() => navigate('/teacher/quizzes')}>
-            Retour
+      <div className="teacher-live-page teacher-live-page--center">
+        <div className="teacher-live-empty">
+          <div className="teacher-live-empty__icon" aria-hidden="true">!</div>
+          <h1>Session indisponible</h1>
+          <p>{error || 'Session introuvable'}</p>
+          <button className="teacher-live-secondary" onClick={() => navigate('/teacher/quizzes')}>
+            Retour aux quiz
           </button>
         </div>
       </div>
@@ -155,326 +148,135 @@ function LiveSession() {
   }
 
   const joinUrl = `${window.location.origin}/join/${session.codePIN}`
-
   const sortedParticipants = [...participants].sort(
     (a, b) => (b.scoreTotal ?? 0) - (a.scoreTotal ?? 0)
   )
+  const isLobby = session.statut === 'PLANIFIEE'
+  const isLive = session.statut === 'EN_COURS'
+  const isDone = session.statut === 'TERMINEE'
+  const currentQuestion = (session.currentQuestionIndex ?? 0) + 1
 
   return (
-    <div className="layout-desktop">
-      <div className="main-content" style={{ padding: 0 }}>
-        {/* Header */}
-        <div className="topbar" style={{ justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button
-              className="btn-secondary"
-              style={{ padding: '0.5rem 1rem' }}
-              onClick={() => navigate('/teacher/quizzes')}
-            >
-              ← Retour
-            </button>
-            <span className="badge-live">
-              {session.statut === 'EN_COURS'
-                ? 'EN COURS'
-                : session.statut === 'TERMINEE'
-                ? 'TERMINÉE'
-                : 'LOBBY'}
-            </span>
-          </div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Session #{session.id}
-          </div>
+    <div className="teacher-live-page animate-fade-in">
+      <header className="teacher-live-header">
+        <button className="teacher-live-back" onClick={() => navigate('/teacher/quizzes')}>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 18 9 12l6-6" />
+          </svg>
+          <span>Retour</span>
+        </button>
+
+        <div className="teacher-live-title">
+          <span className={`teacher-live-status teacher-live-status--${session.statut.toLowerCase()}`}>
+            {getStatusLabel(session.statut)}
+          </span>
+          <h1>Session live #{session.id}</h1>
         </div>
 
-        {/* Contenu */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '2rem',
-            padding: '2rem',
-            minHeight: 'calc(100vh - var(--header-height))',
-          }}
-        >
-          {/* Colonne gauche */}
-          <div
-            className="animate-fade-in"
-            style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}
-          >
-            {/* PIN */}
-            <div
-              className="card"
-              onClick={handleCopyPin}
-              title="Cliquer pour copier le PIN"
-              style={{
-                textAlign: 'center',
-                padding: '3rem 2rem',
-                background:
-                  'linear-gradient(135deg, rgba(79,70,229,0.15), rgba(124,58,237,0.1))',
-                border: '1px solid rgba(79,70,229,0.3)',
-                cursor: 'pointer',
-              }}
-            >
-              <p
-                style={{
-                  color: 'var(--text-muted)',
-                  marginBottom: '0.75rem',
-                  fontSize: '0.9375rem',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {copied ? '✓ PIN copié !' : 'Code PIN — cliquer pour copier'}
-              </p>
-              <h1
-                style={{
-                  fontSize: 'clamp(3.5rem, 8vw, 5.5rem)',
-                  letterSpacing: '0.2em',
-                  background: 'var(--accent-gradient)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontFamily: 'var(--font-display)',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                {session.codePIN}
-              </h1>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-                Les joueurs rejoignent sur{' '}
-                <strong style={{ color: 'var(--accent-cyan)' }}>/join</strong>
-              </p>
-            </div>
+        <div className="teacher-live-count">
+          <span>{participants.length}</span>
+          joueur{participants.length > 1 ? 's' : ''}
+        </div>
+      </header>
 
-            {/* QR */}
-            <div
-              className="card"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1.25rem',
-                padding: '2rem',
-              }}
-            >
-              <p
-                style={{
-                  color: 'var(--text-muted)',
-                  fontSize: '0.875rem',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Scanner pour rejoindre
-              </p>
-              <div
-                style={{
-                  background: 'white',
-                  padding: '1.25rem',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-glow)',
-                }}
-              >
-                <QRCodeSVG
-                  value={joinUrl}
-                  size={200}
-                  level="M"
-                  bgColor="#ffffff"
-                  fgColor="#0a0e1a"
-                />
-              </div>
-              <p
-                style={{
-                  color: 'var(--text-muted)',
-                  fontSize: '0.8125rem',
-                  wordBreak: 'break-all',
-                  textAlign: 'center',
-                }}
-              >
-                {joinUrl}
-              </p>
+      <main className="teacher-live-grid">
+        <section className="teacher-live-stage">
+          <div className="teacher-live-pin-card" onClick={handleCopyPin} title="Cliquer pour copier le PIN">
+            <div className="teacher-live-pin-card__top">
+              <span>{copied ? 'PIN copié' : 'Code PIN'}</span>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
             </div>
+            <strong>{session.codePIN}</strong>
+            <p>Les élèves rejoignent sur <span>/join</span> ou via le QR code.</p>
+          </div>
 
-            {/* Actions */}
-            {session.statut === 'PLANIFIEE' && (
-              <button
-                className="btn-primary"
-                onClick={handleStart}
-                disabled={starting}
-                style={{ padding: '1.25rem 2rem', fontSize: '1.125rem' }}
-              >
-                {starting
-                  ? 'Démarrage...'
-                  : `🚀 Lancer la session (${participants.length} joueur${
-                      participants.length > 1 ? 's' : ''
-                    })`}
+          <div className="teacher-live-controls">
+            {isLobby && (
+              <button className="teacher-live-primary" onClick={handleStart} disabled={starting}>
+                <span>{starting ? 'Démarrage...' : 'Lancer la session'}</span>
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="m8 5 11 7-11 7V5Z" />
+                </svg>
               </button>
             )}
 
-            {session.statut === 'EN_COURS' && (
-              <div
-                className="card"
-                style={{ textAlign: 'center', borderColor: 'var(--accent-cyan)' }}
-              >
-                <span className="badge-live">EN COURS</span>
-                <p style={{ marginTop: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Question {(session.currentQuestionIndex ?? 0) + 1}
-                </p>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    marginTop: '1rem',
-                    justifyContent: 'center',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <button className="btn-primary" onClick={handleNextQuestion}>
-                    Question suivante →
-                  </button>
-                  <button className="btn-secondary" onClick={handleFinish}>
-                    Terminer
-                  </button>
+            {isLive && (
+              <>
+                <div className="teacher-live-question">
+                  <span>Question active</span>
+                  <strong>{currentQuestion}</strong>
                 </div>
-              </div>
-            )}
-
-            {session.statut === 'TERMINEE' && (
-              <div className="card" style={{ textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                  Session terminée
-                </p>
-                <button
-                  className="btn-primary"
-                  onClick={() => navigate(`/results/${session.id}`)}
-                >
-                  Voir le podium 🏆
+                <button className="teacher-live-primary" onClick={handleNextQuestion}>
+                  Question suivante
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M5 12h14" />
+                    <path d="m13 6 6 6-6 6" />
+                  </svg>
                 </button>
-              </div>
+                <button className="teacher-live-secondary teacher-live-secondary--danger" onClick={handleFinish}>
+                  Terminer
+                </button>
+              </>
+            )}
+
+            {isDone && (
+              <button className="teacher-live-primary" onClick={() => navigate(`/results/${session.id}`)}>
+                Voir le podium
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8 21h8" />
+                  <path d="M12 17v4" />
+                  <path d="M7 4h10v4a5 5 0 0 1-10 0V4Z" />
+                  <path d="M17 5h3a2 2 0 0 1-2 2h-1" />
+                  <path d="M7 5H4a2 2 0 0 0 2 2h1" />
+                </svg>
+              </button>
             )}
           </div>
 
-          {/* Classement */}
-          <div
-            className="card animate-slide-in"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              maxHeight: 'calc(100vh - var(--header-height) - 4rem)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1.25rem',
-              }}
-            >
-              <h3 style={{ fontSize: '1.125rem' }}>Classement</h3>
-              <span
-                style={{
-                  background: 'rgba(6,182,212,0.15)',
-                  color: 'var(--accent-cyan)',
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                }}
-              >
-                {participants.length}
-              </span>
+          <div className="teacher-live-qr-card">
+            <div>
+              <span>Accès rapide</span>
+              <h2>QR code de la session</h2>
+              <p>{joinUrl}</p>
             </div>
-
-            {sortedParticipants.length === 0 ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--text-muted)',
-                  gap: '0.75rem',
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: '2.5rem' }}>👀</div>
-                <p>En attente de joueurs...</p>
-                <p style={{ fontSize: '0.8125rem' }}>Partage le PIN ou le QR code</p>
-              </div>
-            ) : (
-              <div
-                style={{
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                }}
-              >
-                {sortedParticipants.map((p, index) => (
-                  <div
-                    key={p.id}
-                    className="animate-scale-in"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      background: 'var(--bg-tertiary)',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-subtle)',
-                      animationDelay: `${index * 50}ms`,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 24,
-                        textAlign: 'center',
-                        fontWeight: 800,
-                        color:
-                          index === 0
-                            ? '#fbbf24'
-                            : index === 1
-                            ? '#94a3b8'
-                            : index === 2
-                            ? '#cd7c3a'
-                            : 'var(--text-muted)',
-                      }}
-                    >
-                      {index + 1}
-                    </span>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        background: 'var(--accent-gradient)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      {p.pseudonyme.charAt(0).toUpperCase()}
-                    </div>
-                    <span style={{ fontWeight: 500, flex: 1 }}>{p.pseudonyme}</span>
-                    <span
-                      style={{
-                        color: 'var(--accent-cyan)',
-                        fontWeight: 700,
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      {Math.round(p.scoreTotal ?? 0)} pts
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="teacher-live-qr">
+              <QRCodeSVG value={joinUrl} size={178} level="M" bgColor="#ffffff" fgColor="#0d0221" />
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
+
+        <aside className="teacher-live-leaderboard">
+          <div className="teacher-live-leaderboard__head">
+            <div>
+              <span>Temps réel</span>
+              <h2>Classement</h2>
+            </div>
+            <strong>{participants.length}</strong>
+          </div>
+
+          {sortedParticipants.length === 0 ? (
+            <div className="teacher-live-waiting">
+              <div aria-hidden="true">...</div>
+              <h3>En attente de joueurs</h3>
+              <p>Projette le PIN ou le QR code pour remplir le lobby.</p>
+            </div>
+          ) : (
+            <div className="teacher-live-player-list">
+              {sortedParticipants.map((participant, index) => (
+                <div className="teacher-live-player" key={participant.id} style={{ animationDelay: `${index * 45}ms` }}>
+                  <span className="teacher-live-rank">{index + 1}</span>
+                  <span className="teacher-live-avatar">{participant.pseudonyme.charAt(0).toUpperCase()}</span>
+                  <span className="teacher-live-name">{participant.pseudonyme}</span>
+                  <strong>{Math.round(participant.scoreTotal ?? 0)} pts</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+      </main>
     </div>
   )
 }

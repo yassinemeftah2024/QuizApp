@@ -4,6 +4,7 @@ import { getMyQuizzes, type TeacherStatsDTO } from '@/services/quizService'
 import type { QCMDTO } from '@/types'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { sessionService } from '@/services/sessionService'
 
 const fallbackWeekData = [
   { day: 'Mon', sessions: 2 }, { day: 'Tue', sessions: 3 },
@@ -19,6 +20,31 @@ interface Props {
 export default function TeacherDashboard({ userName, onNav }: Props) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [launchingId, setLaunchingId] = useState<number | null>(null)
+
+const handleStartLive = async (quizId?: number) => {
+  // Si aucun quizId : prendre le premier quiz publié
+  const targetId = quizId ?? quizzes.find(q => q.publie)?.id
+  if (!targetId) {
+    alert('Publie d\'abord un quiz, ou choisis-en un dans Quizzes.')
+    navigate('/teacher/quizzes')
+    return
+  }
+  setLaunchingId(targetId)
+  try {
+    const session = await sessionService.create({
+      qcmId: targetId,
+      createdBy: user?.id ?? 1,
+      mode: 'LIVE',
+      nombreMaxParticipants: 30,
+    })
+    navigate(`/teacher/sessions/${session.id}/live`)
+  } catch {
+    alert('Impossible de lancer la session live')
+  } finally {
+    setLaunchingId(null)
+  }
+}
   const [quizzes, setQuizzes] = useState<QCMDTO[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -49,7 +75,14 @@ export default function TeacherDashboard({ userName, onNav }: Props) {
             <h2 style={{ margin: '12px 0 8px', fontFamily: 'Outfit, sans-serif', fontSize: 30, fontWeight: 800 }}>{displayName} 👋</h2>
             <p style={{ margin: 0, color: 'rgba(255,255,255,0.88)', fontSize: 14, lineHeight: 1.75 }}>Manage your quizzes, start live sessions, and monitor student progress from a clean, focused workspace.</p>
           </div>
-          <button onClick={() => navigate('/teacher/live')} className="action-button" style={{ border: 'none', background: '#fff', color: '#2563EB', minWidth: 190, fontSize: 15 }}>🚀 Start Live Session</button>
+          <button
+  onClick={() => handleStartLive()}
+  disabled={launchingId !== null}
+  className="action-button"
+  style={{ border: 'none', background: '#fff', color: '#2563EB', minWidth: 190, fontSize: 15 }}
+>
+  {launchingId !== null ? 'Lancement…' : '🚀 Start Live Session'}
+</button>
         </div>
       </div>
 
@@ -128,7 +161,22 @@ export default function TeacherDashboard({ userName, onNav }: Props) {
                   <div style={{ fontSize: 12, color: '#64748B' }}>{q.matiere || 'No subject'} · {q.nombreQuestions} questions · {q.mode}</div>
                 </div>
                 <span style={{ background: q.publie ? '#ECFDF5' : '#FEF3C7', color: q.publie ? '#16A34A' : '#D97706', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700 }}>{q.publie ? 'Published' : 'Draft'}</span>
-                <button onClick={() => navigate('/teacher/live')} className="action-button" style={{ border: 'none', background: '#2563EB', color: '#fff', borderRadius: 12, padding: '10px 18px', fontWeight: 700 }}>▶ Start</button>
+                <button
+  onClick={() => handleStartLive(q.id)}
+  disabled={launchingId === q.id || !q.publie}
+  className="action-button"
+  style={{
+    border: 'none',
+    background: q.publie ? '#2563EB' : '#94A3B8',
+    color: '#fff',
+    borderRadius: 12,
+    padding: '10px 18px',
+    fontWeight: 700,
+    cursor: q.publie ? 'pointer' : 'not-allowed',
+  }}
+>
+  {launchingId === q.id ? '…' : '▶ Start'}
+</button>
               </div>
             ))
           )}
