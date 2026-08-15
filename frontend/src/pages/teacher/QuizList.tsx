@@ -87,7 +87,8 @@ export default function TeacherQuizList({ onNav, onToast }: Props) {
     LIVE: '#2563EB',
     ENTRAINEMENT: '#16A34A',
     EXAMEN: '#DC2626',
-    DEFI: '#7C3AED',
+    CHALLENGE: '#7C3AED',
+    NORMAL: '#64748B',
   }
 
   return (

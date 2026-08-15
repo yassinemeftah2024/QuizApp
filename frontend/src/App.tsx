@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import { AdminTeacherLayout, StudentLayout } from '@/components/layout/AppLayout'
+import Toast, { type ToastData } from '@/components/Toast'
 
 // ─── Figma / dev-a ───────────────────────────────────────────────────
 import RoleSelect from '@/pages/RoleSelect'
@@ -54,7 +56,25 @@ const RoleSelectWrapper = () => {
   )
 }
 
+const normalizeToastType = (type?: string): ToastData['type'] =>
+  type === 'success' || type === 'error' || type === 'warning' || type === 'info' ? type : 'info'
+
+const TeacherQuizCreateWrapper = ({ onToast }: { onToast: (msg: string, type?: string) => void }) => {
+  const navigate = useNavigate()
+  return <TeacherQuizCreate onBack={() => navigate('/teacher/quizzes')} onToast={onToast} />
+}
+
 function App() {
+  const [toasts, setToasts] = useState<ToastData[]>([])
+  const addToast = (message: string, type?: string) => {
+    setToasts(prev => [...prev, {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      message,
+      type: normalizeToastType(type),
+    }])
+  }
+  const removeToast = (id: string) => setToasts(prev => prev.filter(toast => toast.id !== id))
+
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -103,14 +123,14 @@ function App() {
             }
           >
             <Route index element={<TeacherDashboard userName="Teacher" onNav={() => {}} />} />
-            <Route path="quizzes" element={<TeacherQuizList onNav={() => {}} onToast={() => {}} />} />
+            <Route path="quizzes" element={<TeacherQuizList onNav={() => {}} onToast={addToast} />} />
             <Route path="question-bank" element={<TeacherQuestionBank />} />
-            <Route path="quiz-create" element={<TeacherQuizCreate onBack={() => {}} onToast={() => {}} />} />
-            <Route path="quiz-create/:quizId" element={<TeacherQuizCreate onBack={() => {}} onToast={() => {}} />} />
-            <Route path="documents" element={<TeacherDocuments onToast={() => {}} />} />
+            <Route path="quiz-create" element={<TeacherQuizCreateWrapper onToast={addToast} />} />
+            <Route path="quiz-create/:quizId" element={<TeacherQuizCreateWrapper onToast={addToast} />} />
+            <Route path="documents" element={<TeacherDocuments onToast={addToast} />} />
             <Route path="classes" element={<TeacherClasses />} />
-            <Route path="stats" element={<TeacherResults onToast={() => {}} />} />
-            <Route path="settings" element={<TeacherSettings onToast={() => {}} />} />
+            <Route path="stats" element={<TeacherResults onToast={addToast} />} />
+            <Route path="settings" element={<TeacherSettings onToast={addToast} />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
 
@@ -159,6 +179,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Toast toasts={toasts} onRemove={removeToast} />
       </BrowserRouter>
     </AuthProvider>
   )

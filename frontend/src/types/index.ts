@@ -7,7 +7,7 @@
 
 export type RoleEnum = 'ADMIN' | 'ENSEIGNANT' | 'ETUDIANT' | 'INVITE';
 
-export type ModeQuizEnum = 'LIVE' | 'ENTRAINEMENT' | 'EXAMEN' | 'DEFI';
+export type ModeQuizEnum = 'LIVE' | 'ENTRAINEMENT' | 'EXAMEN' | 'CHALLENGE' | 'NORMAL';
 
 export type StatutSessionEnum =
   | 'EN_ATTENTE'

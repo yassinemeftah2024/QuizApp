@@ -65,6 +65,43 @@ export default function QuizCreate({ onToast, onBack }: Props) {
   const duplicateQ = (q: Question) =>
     setQuestions(prev => [...prev, { ...q, id: Date.now(), expanded: true }])
 
+  const getApiErrorMessage = (err: any, fallback: string) => {
+    const data = err?.response?.data
+    if (data?.message) return data.message
+    if (data?.errors && typeof data.errors === 'object') {
+      const first = Object.values(data.errors)[0]
+      if (typeof first === 'string') return first
+    }
+    return fallback
+  }
+
+  const validateQuiz = () => {
+    if (!meta.title.trim()) return 'Please enter a quiz title'
+    for (let index = 0; index < questions.length; index++) {
+      const q = questions[index]
+      const label = `Question ${index + 1}`
+      if (!q.text.trim()) return `${label}: enter the question text`
+      if (q.type === 'open') continue
+      if (q.type === 'truefalse') {
+        if (q.correct.length !== 1) return `${label}: choose True or False as the correct answer`
+        continue
+      }
+
+      const filledAnswerIndexes = q.options
+        .map((option, answerIndex) => option.trim() ? answerIndex : -1)
+        .filter(answerIndex => answerIndex >= 0)
+
+      if (filledAnswerIndexes.length < 2) return `${label}: add at least two answer options`
+      if (!q.correct.some(answerIndex => filledAnswerIndexes.includes(answerIndex))) {
+        return `${label}: select a correct answer that has text`
+      }
+      if (q.type === 'mcq' && q.correct.filter(answerIndex => filledAnswerIndexes.includes(answerIndex)).length !== 1) {
+        return `${label}: select exactly one correct answer`
+      }
+    }
+    return null
+  }
+
   const buildQuestions = (): CreateQuestionRequest[] => questions.map((q, index) => ({
     texte: q.text.trim(),
     type: q.type === 'mcq' ? 'CHOIX_UNIQUE' : q.type === 'multiple' ? 'CHOIX_MULTIPLE' : q.type === 'truefalse' ? 'VRAI_FAUX' : 'TEXTE_LIBRE',
@@ -91,17 +128,17 @@ export default function QuizCreate({ onToast, onBack }: Props) {
       updateQ(id, { mediaUrl: uploaded.url, mediaType: uploaded.type })
       onToast('Media attached', 'success')
     } catch (err: any) {
-      onToast(err?.response?.data?.message || 'Media upload failed', 'error')
+      onToast(getApiErrorMessage(err, 'Media upload failed'), 'error')
     }
   }
 
   const handleSaveDraft = async () => {
-    if (!meta.title) { onToast('Please enter a quiz title', 'error'); return }
-    if (questions.some(q => !q.text.trim())) { onToast('Every question needs text', 'error'); return }
+    const validationError = validateQuiz()
+    if (validationError) { onToast(validationError, 'error'); return }
     setSaving(true)
     try {
       const payload = {
-        titre: meta.title, description: meta.description,
+        titre: meta.title.trim(), description: meta.description,
         matiere: meta.subject, niveau: meta.level,
         mode: meta.mode, dureeMinutes: meta.duration,
         matiereId: meta.subjectId || undefined, classeIds: meta.classIds,
@@ -112,19 +149,19 @@ export default function QuizCreate({ onToast, onBack }: Props) {
       onToast('Draft saved successfully! 💾', 'info')
       navigate('/teacher/quizzes')
     } catch (err: any) {
-      onToast(err?.response?.data?.message || 'Failed to save draft', 'error')
+      onToast(getApiErrorMessage(err, 'Failed to save draft'), 'error')
     } finally {
       setSaving(false)
     }
   }
 
   const handlePublish = async () => {
-    if (!meta.title) { onToast('Please enter a quiz title', 'error'); return }
-    if (questions.some(q => !q.text.trim())) { onToast('Every question needs text', 'error'); return }
+    const validationError = validateQuiz()
+    if (validationError) { onToast(validationError, 'error'); return }
     setSaving(true)
     try {
       const payload = {
-        titre: meta.title, description: meta.description,
+        titre: meta.title.trim(), description: meta.description,
         matiere: meta.subject, niveau: meta.level,
         mode: meta.mode, dureeMinutes: meta.duration,
         matiereId: meta.subjectId || undefined, classeIds: meta.classIds,
@@ -136,7 +173,7 @@ export default function QuizCreate({ onToast, onBack }: Props) {
       onToast('Quiz published successfully! 🎉', 'success')
       navigate('/teacher/quizzes')
     } catch (err: any) {
-      onToast(err?.response?.data?.message || 'Failed to publish quiz', 'error')
+      onToast(getApiErrorMessage(err, 'Failed to publish quiz'), 'error')
     } finally {
       setSaving(false)
     }
@@ -145,7 +182,7 @@ export default function QuizCreate({ onToast, onBack }: Props) {
   const modeOptions: { v: ModeQuizEnum; label: string; color: string }[] = [
     { v: 'ENTRAINEMENT', label: 'Training', color: '#16A34A' },
     { v: 'EXAMEN', label: 'Exam', color: '#DC2626' },
-    { v: 'DEFI', label: 'Challenge', color: '#7C3AED' },
+    { v: 'CHALLENGE', label: 'Challenge', color: '#7C3AED' },
     { v: 'LIVE', label: 'Live', color: '#2563EB' },
   ]
 
