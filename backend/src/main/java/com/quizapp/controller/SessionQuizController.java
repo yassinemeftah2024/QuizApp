@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 /**
  * Controller REST pour les sessions de quiz.
  *
@@ -33,6 +33,7 @@ public class SessionQuizController {
 
     private final SessionQuizService sessionQuizService;
     private final QrCodeService qrCodeService;
+    private final SimpMessagingTemplate messagingTemplate;
     // =====================================================
     // 1. CRÉER UNE SESSION
     // =====================================================
@@ -82,27 +83,34 @@ public class SessionQuizController {
     // =====================================================
     @PostMapping("/{id}/start")
     public ResponseEntity<?> startSession(@PathVariable Long id) {
-        try {
-            SessionQuiz session = sessionQuizService.startSession(id);
-            return ResponseEntity.ok(session);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    try {
+        SessionQuiz session = sessionQuizService.startSession(id);
+        messagingTemplate.convertAndSend(
+                "/topic/session/" + id + "/status",
+                Map.of("statut", session.getStatut().name(), "questionIndex", session.getCurrentQuestionIndex())
+        );
+        return ResponseEntity.ok(session);
+    } catch (RuntimeException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
+}
 
     // =====================================================
     // 6. TERMINER UNE SESSION
     // =====================================================
     @PostMapping("/{id}/finish")
     public ResponseEntity<?> finishSession(@PathVariable Long id) {
-        try {
-            SessionQuiz session = sessionQuizService.finishSession(id);
-            return ResponseEntity.ok(session);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    try {
+        SessionQuiz session = sessionQuizService.finishSession(id);
+        messagingTemplate.convertAndSend(
+                "/topic/session/" + id + "/status",
+                Map.of("statut", "TERMINEE")
+        );
+        return ResponseEntity.ok(session);
+    } catch (RuntimeException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
-
+}
     // =====================================================
     // 7. ANNULER UNE SESSION
     // =====================================================
@@ -121,13 +129,17 @@ public class SessionQuizController {
     // =====================================================
     @PostMapping("/{id}/next-question")
     public ResponseEntity<?> nextQuestion(@PathVariable Long id) {
-        try {
-            SessionQuiz session = sessionQuizService.nextQuestion(id);
-            return ResponseEntity.ok(session);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    try {
+        SessionQuiz session = sessionQuizService.nextQuestion(id);
+        messagingTemplate.convertAndSend(
+                "/topic/session/" + id + "/question",
+                Map.of("questionIndex", session.getCurrentQuestionIndex())
+        );
+        return ResponseEntity.ok(session);
+    } catch (RuntimeException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
     }
+}
     // =====================================================
 // 9. GÉNÉRER LE QR CODE D'UNE SESSION
 // =====================================================

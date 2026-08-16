@@ -20,6 +20,7 @@ import java.util.Map;
  * GET  /api/participations/session/{sessionId}
  * GET  /api/participations/session/{sessionId}/leaderboard
  */
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 @RestController
 @RequestMapping("/api/participations")
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ import java.util.Map;
 public class ParticipationController {
 
     private final ParticipationService participationService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // =====================================================
     // 1. REJOINDRE UNE SESSION
@@ -39,6 +41,14 @@ public class ParticipationController {
                     request.getPseudonyme(),
                     request.getUtilisateurId()
             );
+
+            // 🔔 Notifie le teacher en temps réel
+            var participants = participationService.getParticipants(request.getSessionId());
+            messagingTemplate.convertAndSend(
+                    "/topic/session/" + request.getSessionId() + "/participants",
+                    participants
+            );
+
             return ResponseEntity.status(HttpStatus.CREATED).body(participation);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
