@@ -47,15 +47,21 @@ public class QuizWebSocketController {
     @MessageMapping("/session/{sessionId}/start")
     public void startSession(@DestinationVariable Long sessionId) {
         try {
-            var session = sessionQuizService.startSession(sessionId);
-
-            messagingTemplate.convertAndSend(
-                    "/topic/session/" + sessionId + "/status",
-                    Map.of(
-                            "statut", session.getStatut().name(),
-                            "message", "La session a démarré !"
-                    )
-            );
+            var optSession = sessionQuizService.findById(sessionId);
+            if (optSession.isPresent()) {
+                var session = optSession.get();
+                if (session.getStatut() == com.quizapp.model.enums.StatutSessionEnum.PLANIFIEE) {
+                    session = sessionQuizService.startSession(sessionId);
+                }
+                messagingTemplate.convertAndSend(
+                        "/topic/session/" + sessionId + "/status",
+                        Map.of(
+                                "statut", session.getStatut().name(),
+                                "message", "La session a démarré !",
+                                "questionIndex", session.getCurrentQuestionIndex()
+                        )
+                );
+            }
         } catch (RuntimeException e) {
             messagingTemplate.convertAndSend(
                     "/topic/session/" + sessionId + "/error",
@@ -71,15 +77,24 @@ public class QuizWebSocketController {
     @MessageMapping("/session/{sessionId}/next-question")
     public void nextQuestion(@DestinationVariable Long sessionId) {
         try {
-            var session = sessionQuizService.nextQuestion(sessionId);
-
-            messagingTemplate.convertAndSend(
-                    "/topic/session/" + sessionId + "/question",
-                    Map.of(
-                            "questionIndex", session.getCurrentQuestionIndex(),
-                            "message", "Nouvelle question !"
-                    )
-            );
+            var optSession = sessionQuizService.findById(sessionId);
+            if (optSession.isPresent() && optSession.get().getStatut() == com.quizapp.model.enums.StatutSessionEnum.EN_COURS) {
+                var session = sessionQuizService.nextQuestion(sessionId);
+                if (session.getStatut() == com.quizapp.model.enums.StatutSessionEnum.TERMINEE) {
+                    messagingTemplate.convertAndSend(
+                            "/topic/session/" + sessionId + "/status",
+                            Map.of("statut", "TERMINEE")
+                    );
+                } else {
+                    messagingTemplate.convertAndSend(
+                            "/topic/session/" + sessionId + "/question",
+                            Map.of(
+                                    "questionIndex", session.getCurrentQuestionIndex(),
+                                    "message", "Nouvelle question !"
+                            )
+                    );
+                }
+            }
         } catch (RuntimeException e) {
             messagingTemplate.convertAndSend(
                     "/topic/session/" + sessionId + "/error",

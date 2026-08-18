@@ -22,6 +22,9 @@ public interface ReponseEtudiantRepository extends JpaRepository<ReponseEtudiant
     // Toutes les réponses à une question dans une session
     List<ReponseEtudiant> findBySessionIdAndQuestionId(Long sessionId, Long questionId);
 
+    // Nombre de réponses à une question dans une session
+    long countBySessionIdAndQuestionId(Long sessionId, Long questionId);
+
     // Vérifier si un joueur a déjà répondu à une question
     boolean existsByParticipationIdAndQuestionId(Long participationId, Long questionId);
 }

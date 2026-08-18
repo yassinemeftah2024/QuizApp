@@ -29,6 +29,11 @@ public class QuestionService {
         return questionRepository.findByQcmIdOrderByOrdreAsc(quizId).stream().map(this::toDTO).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<QuestionDTO> listForSession(Long quizId) {
+        return questionRepository.findByQcmIdOrderByOrdreAsc(quizId).stream().map(this::toDTO).toList();
+    }
+
     @Transactional public QuestionDTO create(Long quizId, CreateQuestionRequest request) {
         QCM quiz = ownedQuiz(quizId); validate(request);
         Question question = new Question();

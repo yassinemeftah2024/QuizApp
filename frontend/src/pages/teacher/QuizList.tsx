@@ -69,6 +69,10 @@ export default function TeacherQuizList({ onNav, onToast }: Props) {
   const handleStartLive = async (quizId: number) => {
     setLaunchingId(quizId)
     try {
+      const targetQuiz = quizzes.find((q) => q.id === quizId)
+      if (targetQuiz && !targetQuiz.publie) {
+        await publishQuiz(quizId)
+      }
       const session = await sessionService.create({
         qcmId: quizId,
         createdBy: user?.id ?? 1,
@@ -379,42 +383,37 @@ export default function TeacherQuizList({ onNav, onToast }: Props) {
                   <button
                     onClick={() => handlePublish(q.id)}
                     style={{
-                      flex: 1,
-                      padding: '8px',
+                      padding: '8px 12px',
                       borderRadius: 8,
-                      border: 'none',
-                      background: 'linear-gradient(90deg,#2563EB,#1D4ED8)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: 13,
+                      border: '1px solid #CBD5E1',
+                      background: '#fff',
+                      color: '#2563EB',
+                      fontWeight: 600,
                       cursor: 'pointer',
-                      fontFamily: 'Outfit, sans-serif',
                     }}
                   >
                     Publish ✓
                   </button>
                 )}
-                {q.publie && (
-                  <button
-                    onClick={() => handleStartLive(q.id)}
-                    disabled={launchingId === q.id}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: 'linear-gradient(90deg,#16A34A,#15803D)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: launchingId === q.id ? 'wait' : 'pointer',
-                      fontFamily: 'Outfit, sans-serif',
-                      opacity: launchingId === q.id ? 0.7 : 1,
-                    }}
-                  >
-                    {launchingId === q.id ? 'Lancement…' : '▶ Start Live'}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleStartLive(q.id)}
+                  disabled={launchingId === q.id}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'linear-gradient(90deg,#16A34A,#15803D)',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: launchingId === q.id ? 'wait' : 'pointer',
+                    fontFamily: 'Outfit, sans-serif',
+                    opacity: launchingId === q.id ? 0.7 : 1,
+                  }}
+                >
+                  {launchingId === q.id ? 'Lancement…' : '▶ Start Live'}
+                </button>
                 <button
                   onClick={() => handleDelete(q.id)}
                   style={{

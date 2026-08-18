@@ -22,7 +22,7 @@ import java.util.Map;
  */
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 @RestController
-@RequestMapping("/api/participations")
+@RequestMapping("/participations")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class ParticipationController {

@@ -4,43 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { sessionService, type SessionResponse } from '@/services/sessionService'
 import api from '@/services/api'
 import { wsService } from '@/services/websocket'
-
-// ─── Questions de démo (en attendant l'API QCM de dev-a) ───────────────
-const DEMO_QUESTIONS = [
-  {
-    id: 1,
-    texte: 'Quelle est la capitale de la France ?',
-    dureeSecondes: 20,
-    reponses: [
-      { id: 1, texte: 'Londres', correcte: false, option: 'A' },
-      { id: 2, texte: 'Paris', correcte: true, option: 'B' },
-      { id: 3, texte: 'Berlin', correcte: false, option: 'C' },
-      { id: 4, texte: 'Madrid', correcte: false, option: 'D' },
-    ],
-  },
-  {
-    id: 2,
-    texte: 'Combien font 2 + 2 ?',
-    dureeSecondes: 15,
-    reponses: [
-      { id: 5, texte: '3', correcte: false, option: 'A' },
-      { id: 6, texte: '4', correcte: true, option: 'B' },
-      { id: 7, texte: '5', correcte: false, option: 'C' },
-      { id: 8, texte: '22', correcte: false, option: 'D' },
-    ],
-  },
-  {
-    id: 3,
-    texte: 'Quel langage tourne sur la JVM ?',
-    dureeSecondes: 20,
-    reponses: [
-      { id: 9, texte: 'Python', correcte: false, option: 'A' },
-      { id: 10, texte: 'Java', correcte: true, option: 'B' },
-      { id: 11, texte: 'Ruby', correcte: false, option: 'C' },
-      { id: 12, texte: 'PHP', correcte: false, option: 'D' },
-    ],
-  },
-]
+import type { QuestionDTO } from '@/types'
 
 const KAHoot_COLORS = [
   { bg: '#e21b3c', hover: '#c41030' }, // Rouge
@@ -56,6 +20,7 @@ function LiveQuestion() {
   const navigate = useNavigate()
 
   const [session, setSession] = useState<SessionResponse | null>(null)
+  const [questions, setQuestions] = useState<QuestionDTO[]>([])
   const [phase, setPhase] = useState<Phase>('waiting')
   const [questionIndex, setQuestionIndex] = useState(0)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -69,7 +34,7 @@ function LiveQuestion() {
   const participationId = Number(localStorage.getItem('participationId') || 0)
   const pseudonyme = localStorage.getItem('pseudonyme') || 'Joueur'
 
-  const currentQuestion = DEMO_QUESTIONS[questionIndex] || null
+  const currentQuestion = questions[questionIndex] || null
 
   const startTimer = (seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current)
@@ -89,8 +54,12 @@ function LiveQuestion() {
   const loadSession = useCallback(async () => {
     if (!sessionId) return
     try {
-      const data = await sessionService.getById(Number(sessionId))
+      const sid = Number(sessionId)
+      const data = await sessionService.getById(sid)
       setSession(data)
+
+      const questionList = await sessionService.getQuestions(sid)
+      setQuestions(questionList)
 
       if (data.statut === 'TERMINEE' || data.statut === 'ANNULEE') {
         setPhase('finished')
@@ -99,78 +68,68 @@ function LiveQuestion() {
 
       const serverIndex = data.currentQuestionIndex ?? 0
 
-      // Session vient de démarrer → passer en mode question
-      if (data.statut === 'EN_COURS' && phase === 'waiting') {
-        setQuestionIndex(serverIndex)
-        setSelectedId(null)
-        setPhase('question')
-        startTimer(DEMO_QUESTIONS[serverIndex]?.dureeSecondes ?? 20)
-        return
-      }
-
-      // L'enseignant a avancé (next-question) → nouvelle question
-      if (
-        data.statut === 'EN_COURS' &&
-        (phase === 'question' || phase === 'answered') &&
-        serverIndex > questionIndex
-      ) {
-        if (serverIndex >= DEMO_QUESTIONS.length) {
+      if (data.statut === 'EN_COURS') {
+        if (serverIndex >= questionList.length) {
           setPhase('finished')
-          return
+        } else {
+          setQuestionIndex(serverIndex)
+          setSelectedId(null)
+          setPhase('question')
+          startTimer(questionList[serverIndex]?.dureeSecondes ?? 20)
         }
-        setQuestionIndex(serverIndex)
-        setSelectedId(null)
-        setPhase('question')
-        startTimer(DEMO_QUESTIONS[serverIndex]?.dureeSecondes ?? 20)
       }
     } catch {
-      setError('Session introuvable')
+      setError('Session ou questions introuvables')
     }
-  }, [sessionId, phase, questionIndex])
+  }, [sessionId])
 
   useEffect(() => {
     if (!sessionId) return
-  
-    // Chargement initial HTTP
+
+    const sid = Number(sessionId)
+
     loadSession()
-  
-    // Connexion WebSocket
+
     wsService.connect(() => {
-      const sid = sessionId
-  
-      // Session démarrée
-      wsService.subscribe(`/topic/session/${sid}/status`, (data: any) => {
+      wsService.subscribe(`/topic/session/${sid}/status`, async (data: any) => {
         console.log('[WS] status', data)
         if (data?.statut === 'EN_COURS') {
-          setPhase('question')
-          setQuestionIndex(0)
-          setSelectedId(null)
-          startTimer(DEMO_QUESTIONS[0]?.dureeSecondes ?? 20)
-        }
-        if (data?.statut === 'TERMINEE') {
+          const loadedQuestions = await sessionService.getQuestions(sid)
+          setQuestions(loadedQuestions)
+          const idx = data?.questionIndex ?? 0
+          if (idx >= loadedQuestions.length) {
+            setPhase('finished')
+          } else {
+            setQuestionIndex(idx)
+            setSelectedId(null)
+            setPhase('question')
+            startTimer(loadedQuestions[idx]?.dureeSecondes ?? 20)
+          }
+        } else if (data?.statut === 'TERMINEE' || data?.statut === 'ANNULEE') {
           setPhase('finished')
         }
       })
-  
-      // Question suivante
-      wsService.subscribe(`/topic/session/${sid}/question`, (data: any) => {
+
+      wsService.subscribe(`/topic/session/${sid}/question`, async (data: any) => {
         console.log('[WS] question', data)
+        const loadedQuestions = await sessionService.getQuestions(sid)
+        setQuestions(loadedQuestions)
         const idx = data?.questionIndex ?? 0
-        if (idx >= DEMO_QUESTIONS.length) {
+        if (idx >= loadedQuestions.length) {
           setPhase('finished')
-          return
+        } else {
+          setQuestionIndex(idx)
+          setSelectedId(null)
+          setPhase('question')
+          startTimer(loadedQuestions[idx]?.dureeSecondes ?? 20)
         }
-        setQuestionIndex(idx)
-        setSelectedId(null)
-        setPhase('question')
-        startTimer(DEMO_QUESTIONS[idx]?.dureeSecondes ?? 20)
       })
     })
-  
+
     return () => {
       wsService.disconnect()
     }
-  }, [sessionId]) // volontairement sans loadSession pour éviter reconnexions
+  }, [sessionId, loadSession])
 
   useEffect(() => {
     return () => {
@@ -190,7 +149,7 @@ function LiveQuestion() {
     if (correcte) setScore((s) => s + points)
 
     try {
-      await api.post('/api/reponses', {
+      await api.post('/reponses', {
         participationId,
         questionId: currentQuestion?.id ?? 0,
         sessionId: Number(sessionId),
@@ -309,7 +268,7 @@ function LiveQuestion() {
       >
         <div>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-            Q{questionIndex + 1}/{DEMO_QUESTIONS.length}
+            Q{questionIndex + 1}/{questions.length}
           </span>
           <div style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>{score} pts</div>
         </div>
@@ -355,13 +314,22 @@ function LiveQuestion() {
             textAlign: 'center',
             minHeight: 100,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: '1rem',
           }}
         >
           <h2 style={{ fontSize: 'clamp(1.125rem, 4vw, 1.5rem)', margin: 0 }}>
             {currentQuestion.texte}
           </h2>
+          {currentQuestion.mediaUrl && (
+            currentQuestion.mediaType === 'VIDEO' ? (
+              <video src={currentQuestion.mediaUrl} controls style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 'var(--radius-md)' }} />
+            ) : (
+              <img src={currentQuestion.mediaUrl} alt={currentQuestion.mediaAlt || 'Question image'} style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
+            )
+          )}
         </div>
       </div>
 

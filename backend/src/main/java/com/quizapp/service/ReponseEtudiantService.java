@@ -2,13 +2,17 @@ package com.quizapp.service;
 
 import com.quizapp.model.Participation;
 import com.quizapp.model.ReponseEtudiant;
+import com.quizapp.model.SessionQuiz;
+import com.quizapp.model.enums.StatutSessionEnum;
 import com.quizapp.repository.ParticipationRepository;
 import com.quizapp.repository.ReponseEtudiantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -16,11 +20,11 @@ public class ReponseEtudiantService {
 
     private final ReponseEtudiantRepository reponseEtudiantRepository;
     private final ParticipationRepository participationRepository;
+    private final SessionQuizService sessionQuizService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Enregistre la réponse d'un joueur.
-     * Pour l'instant le score est passé en paramètre.
-     * Plus tard on calculera automatiquement si c'est correct.
      */
     @Transactional
     public ReponseEtudiant submitAnswer(Long participationId,
@@ -57,6 +61,27 @@ public class ReponseEtudiantService {
             participation.setTempsTotal(participation.getTempsTotal() + tempsReponse);
         }
         participationRepository.save(participation);
+
+        // Diffuser le classement mis à jour
+        List<Participation> leaderboard = participationRepository.findBySessionIdOrderByScoreTotalDesc(sessionId);
+        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/leaderboard", leaderboard);
+
+        // Vérifier si tous les participants ont répondu à la question active
+        long totalParticipants = participationRepository.countBySessionId(sessionId);
+        long countSubmitted = reponseEtudiantRepository.countBySessionIdAndQuestionId(sessionId, questionId);
+
+        if (totalParticipants > 0 && countSubmitted >= totalParticipants) {
+            try {
+                SessionQuiz session = sessionQuizService.nextQuestion(sessionId);
+                if (session.getStatut() == StatutSessionEnum.TERMINEE) {
+                    messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/status", Map.of("statut", "TERMINEE"));
+                } else {
+                    messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/question", Map.of("questionIndex", session.getCurrentQuestionIndex()));
+                }
+            } catch (Exception ignored) {
+                // Session déjà terminée ou fermée
+            }
+        }
 
         return saved;
     }

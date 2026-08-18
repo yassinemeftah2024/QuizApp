@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createQuiz, getQuestions, getQuizById, publishQuiz, replaceQuestions, updateQuiz, uploadQuestionMedia } from '@/services/quizService'
+import { sessionService } from '@/services/sessionService'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '@/services/api'
 import type { ModeQuizEnum, CreateQuestionRequest } from '@/types'
@@ -179,6 +180,36 @@ export default function QuizCreate({ onToast, onBack }: Props) {
     }
   }
 
+  const handlePublishAndLaunchLive = async () => {
+    const validationError = validateQuiz()
+    if (validationError) { onToast(validationError, 'error'); return }
+    setSaving(true)
+    try {
+      const payload = {
+        titre: meta.title.trim(), description: meta.description,
+        matiere: meta.subject, niveau: meta.level,
+        mode: 'LIVE' as ModeQuizEnum, dureeMinutes: meta.duration,
+        matiereId: meta.subjectId || undefined, classeIds: meta.classIds,
+        difficulte: meta.difficulty as any, disponibleEntrainement: meta.training,
+      }
+      const created = editingId ? await updateQuiz(editingId, payload) : await createQuiz(payload)
+      await replaceQuestions(created.id, buildQuestions())
+      await publishQuiz(created.id)
+      onToast('Quiz publié ! Lancement de la session live… 🚀', 'success')
+      const session = await sessionService.create({
+        qcmId: created.id,
+        createdBy: 1,
+        mode: 'LIVE',
+        nombreMaxParticipants: 30,
+      })
+      navigate(`/teacher/sessions/${session.id}/live`)
+    } catch (err: any) {
+      onToast(getApiErrorMessage(err, 'Failed to launch live session'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const modeOptions: { v: ModeQuizEnum; label: string; color: string }[] = [
     { v: 'ENTRAINEMENT', label: 'Training', color: '#16A34A' },
     { v: 'EXAMEN', label: 'Exam', color: '#DC2626' },
@@ -281,6 +312,9 @@ export default function QuizCreate({ onToast, onBack }: Props) {
             </button>
             <button onClick={handlePublish} disabled={saving} style={{ background: saving ? '#94A3B8' : 'linear-gradient(90deg,#2563EB,#1D4ED8)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 20px', fontWeight: 700, fontSize: 14, cursor: saving ? 'default' : 'pointer', fontFamily: 'Outfit, sans-serif' }}>
               {saving ? 'Publishing…' : 'Publish Quiz ✓'}
+            </button>
+            <button onClick={handlePublishAndLaunchLive} disabled={saving} style={{ background: saving ? '#94A3B8' : 'linear-gradient(90deg,#16A34A,#15803D)', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 20px', fontWeight: 700, fontSize: 14, cursor: saving ? 'default' : 'pointer', fontFamily: 'Outfit, sans-serif' }}>
+              {saving ? 'Lancement…' : 'Publier & Lancer Live ▶'}
             </button>
           </div>
         </div>

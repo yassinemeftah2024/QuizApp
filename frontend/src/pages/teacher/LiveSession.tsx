@@ -18,16 +18,20 @@ const getStatusLabel = (status: SessionResponse['statut']) => {
   return 'Lobby'
 }
 
+import type { QuestionDTO } from '@/types'
+
 function LiveSession() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
   const [session, setSession] = useState<SessionResponse | null>(null)
+  const [questions, setQuestions] = useState<QuestionDTO[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [timeLeft, setTimeLeft] = useState<number | null>(null)
 
   const sessionId = Number(id)
 
@@ -35,6 +39,8 @@ function LiveSession() {
     try {
       const data = await sessionService.getById(sessionId)
       setSession(data)
+      const qList = await sessionService.getQuestions(sessionId)
+      setQuestions(qList)
     } catch {
       setError('Impossible de charger la session')
     } finally {
@@ -70,6 +76,21 @@ function LiveSession() {
             setParticipants(data as Participant[])
           }
         })
+
+        wsService.subscribe(`/topic/session/${sessionId}/question`, async (data: any) => {
+          const qList = questions.length > 0 ? questions : await sessionService.getQuestions(sessionId)
+          const idx = data?.questionIndex ?? 0
+          setSession((prev) => prev ? { ...prev, currentQuestionIndex: idx } : null)
+        })
+
+        wsService.subscribe(`/topic/session/${sessionId}/status`, (data: any) => {
+          if (data?.statut) {
+            setSession((prev) => prev ? { ...prev, statut: data.statut } : null)
+            if (data.statut === 'TERMINEE') {
+              navigate(`/results/${sessionId}`)
+            }
+          }
+        })
       },
       (err) => {
         console.error('Erreur WS:', err)
@@ -79,7 +100,38 @@ function LiveSession() {
     return () => {
       wsService.disconnect()
     }
-  }, [sessionId, loadSession, loadParticipants])
+  }, [sessionId, loadSession, loadParticipants, navigate])
+
+  // Timer automatique pour passer à la question suivante
+  useEffect(() => {
+    if (!session || session.statut !== 'EN_COURS' || questions.length === 0) {
+      setTimeLeft(null)
+      return
+    }
+
+    const currentQ = questions[session.currentQuestionIndex ?? 0]
+    const initialTime = currentQ?.dureeSecondes || 20
+    setTimeLeft(initialTime)
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [session?.currentQuestionIndex, session?.statut, questions])
+
+  // Déclencher le passage automatique quand le timer atteint 0
+  useEffect(() => {
+    if (timeLeft === 0 && session?.statut === 'EN_COURS') {
+      handleNextQuestion()
+    }
+  }, [timeLeft])
 
   const handleStart = async () => {
     if (!session) return
@@ -87,7 +139,6 @@ function LiveSession() {
     try {
       const updated = await sessionService.start(session.id)
       setSession(updated)
-      wsService.send(`/app/session/${session.id}/start`, {})
     } catch {
       setError('Impossible de démarrer la session')
     } finally {
@@ -100,7 +151,9 @@ function LiveSession() {
     try {
       const updated = await sessionService.nextQuestion(session.id)
       setSession(updated)
-      wsService.send(`/app/session/${session.id}/next-question`, {})
+      if (updated.statut === 'TERMINEE') {
+        navigate(`/results/${session.id}`)
+      }
     } catch {
       setError('Impossible de passer à la question suivante')
     }
@@ -154,7 +207,9 @@ function LiveSession() {
   const isLobby = session.statut === 'PLANIFIEE'
   const isLive = session.statut === 'EN_COURS'
   const isDone = session.statut === 'TERMINEE'
-  const currentQuestion = (session.currentQuestionIndex ?? 0) + 1
+  const totalQuestions = questions.length
+  const currentIndex = session.currentQuestionIndex ?? 0
+  const isLastQuestion = totalQuestions > 0 && currentIndex + 1 >= totalQuestions
 
   return (
     <div className="teacher-live-page animate-fade-in">
@@ -205,19 +260,32 @@ function LiveSession() {
 
             {isLive && (
               <>
-                <div className="teacher-live-question">
-                  <span>Question active</span>
-                  <strong>{currentQuestion}</strong>
+                <div className="teacher-live-question" style={{ marginBottom: 12, padding: '16px 20px', background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(124,58,237,0.08))', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Question {Math.min(currentIndex + 1, totalQuestions || 1)} / {totalQuestions || '?'}
+                    </span>
+                    {timeLeft !== null && (
+                      <span style={{ fontSize: 13, fontWeight: 800, color: timeLeft <= 5 ? '#DC2626' : '#7C3AED', background: '#fff', padding: '4px 10px', borderRadius: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                        ⏱ {timeLeft}s
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', fontFamily: 'Outfit, sans-serif' }}>
+                    Question #{Math.min(currentIndex + 1, totalQuestions || 1)}
+                  </div>
                 </div>
-                <button className="teacher-live-primary" onClick={handleNextQuestion}>
-                  Question suivante
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M5 12h14" />
-                    <path d="m13 6 6 6-6 6" />
-                  </svg>
-                </button>
+                {!isLastQuestion ? (
+                  <button className="teacher-live-primary" onClick={handleNextQuestion}>
+                    Question suivante ➔
+                  </button>
+                ) : (
+                  <button className="teacher-live-primary" onClick={handleFinish}>
+                    Terminer le quiz ✓
+                  </button>
+                )}
                 <button className="teacher-live-secondary teacher-live-secondary--danger" onClick={handleFinish}>
-                  Terminer
+                  Arrêter la session
                 </button>
               </>
             )}

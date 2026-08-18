@@ -25,13 +25,17 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
  * POST   /api/sessions/{id}/cancel
  * POST   /api/sessions/{id}/next-question
  */
+import com.quizapp.dto.QuestionDTO;
+import com.quizapp.service.QuestionService;
+
 @RestController
-@RequestMapping("/api/sessions")
+@RequestMapping("/sessions")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class SessionQuizController {
 
     private final SessionQuizService sessionQuizService;
+    private final QuestionService questionService;
     private final QrCodeService qrCodeService;
     private final SimpMessagingTemplate messagingTemplate;
     // =====================================================
@@ -129,17 +133,24 @@ public class SessionQuizController {
     // =====================================================
     @PostMapping("/{id}/next-question")
     public ResponseEntity<?> nextQuestion(@PathVariable Long id) {
-    try {
-        SessionQuiz session = sessionQuizService.nextQuestion(id);
-        messagingTemplate.convertAndSend(
-                "/topic/session/" + id + "/question",
-                Map.of("questionIndex", session.getCurrentQuestionIndex())
-        );
-        return ResponseEntity.ok(session);
-    } catch (RuntimeException e) {
-        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        try {
+            SessionQuiz session = sessionQuizService.nextQuestion(id);
+            if (session.getStatut() == com.quizapp.model.enums.StatutSessionEnum.TERMINEE) {
+                messagingTemplate.convertAndSend(
+                        "/topic/session/" + id + "/status",
+                        Map.of("statut", "TERMINEE")
+                );
+            } else {
+                messagingTemplate.convertAndSend(
+                        "/topic/session/" + id + "/question",
+                        Map.of("questionIndex", session.getCurrentQuestionIndex())
+                );
+            }
+            return ResponseEntity.ok(session);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
-}
     // =====================================================
 // 9. GÉNÉRER LE QR CODE D'UNE SESSION
 // =====================================================
@@ -165,4 +176,14 @@ public ResponseEntity<?> getQrCode(@PathVariable Long id) {
             })
             .orElse(ResponseEntity.notFound().build());
 }
+
+    // =====================================================
+    // 10. RÉCUPÉRER LES QUESTIONS D'UNE SESSION (Pour étudiants et live)
+    // =====================================================
+    @GetMapping("/{id}/questions")
+    public ResponseEntity<List<QuestionDTO>> getSessionQuestions(@PathVariable Long id) {
+        return sessionQuizService.findById(id)
+                .map(session -> ResponseEntity.ok(questionService.listForSession(session.getQcmId())))
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

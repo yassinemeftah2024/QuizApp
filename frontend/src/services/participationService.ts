@@ -17,12 +17,12 @@ export interface ParticipationResponse {
 
 export const participationService = {
   join: async (payload: JoinSessionPayload): Promise<ParticipationResponse> => {
-    const { data } = await api.post<ParticipationResponse>('/api/participations/join', payload)
+    const { data } = await api.post<ParticipationResponse>('/participations/join', payload)
     return data
   },
 
   getBySession: async (sessionId: number) => {
-    const { data } = await api.get(`/api/participations/session/${sessionId}`)
+    const { data } = await api.get(`/participations/session/${sessionId}`)
     return data
   },
 }

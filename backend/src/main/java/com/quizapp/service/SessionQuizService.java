@@ -3,6 +3,7 @@ package com.quizapp.service;
 import com.quizapp.model.SessionQuiz;
 import com.quizapp.model.enums.ModeQuizEnum;
 import com.quizapp.model.enums.StatutSessionEnum;
+import com.quizapp.repository.QuestionRepository;
 import com.quizapp.repository.SessionQuizRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class SessionQuizService {
 
     private final SessionQuizRepository sessionQuizRepository;
+    private final QuestionRepository questionRepository;
     private final Random random = new Random();
 
     // =====================================================
@@ -153,7 +155,16 @@ public class SessionQuizService {
             throw new RuntimeException("La session n'est pas en cours");
         }
 
-        session.setCurrentQuestionIndex(session.getCurrentQuestionIndex() + 1);
+        int nextIndex = session.getCurrentQuestionIndex() + 1;
+        int totalQuestions = questionRepository.findByQcmIdOrderByOrdreAsc(session.getQcmId()).size();
+
+        if (nextIndex >= totalQuestions && totalQuestions > 0) {
+            session.setStatut(StatutSessionEnum.TERMINEE);
+            session.setDateFin(LocalDateTime.now());
+        } else {
+            session.setCurrentQuestionIndex(nextIndex);
+        }
+
         return sessionQuizRepository.save(session);
     }
 }
